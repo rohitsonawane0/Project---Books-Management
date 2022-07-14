@@ -16,7 +16,7 @@ exports.validationsReviewEdirAndDelete = async (req, res, next) => {
     const bookId = req.params.bookId
     const curVal = mongoose.Types.ObjectId.isValid(currentId)
     const curBook = mongoose.Types.ObjectId.isValid(bookId)
-    
+
 
     if (!curVal) return res.status(400).send({ status: false, msg: "review id is invalid" })
     if (!curBook) return res.status(400).send({ status: false, msg: "Book id is invalid" })
@@ -41,7 +41,7 @@ exports.createReview = async function (req, res) {
     const bookExist = await booksModel.findOne({ _id: book, isDeleted: false })
     if (bookExist == null || bookExist == undefined) return res.status(404).send({ status: false, msg: "Book not found" })
     let { review, rating, reviewedBy } = req.body
-    
+
     if (!Object.keys(req.body).length) return res.status(400).send({ status: false, msg: "reviewedBy and rating must be present" })
     if (!isValid(rating)) return res.status(400).send({ status: false, msg: "rating cannot be empty" })
     if (!rexrating.test(rating)) return res.status(400).send({ status: false, msg: "rating mustbe 1 to 5" })
