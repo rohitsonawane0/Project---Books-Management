@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const booksModel = require('../model/booksModel');
 
 //[ALL AUTHENTICATION LOGIC HERE ]
-exports.authentication = function (req, res, next) {
+exports.authentication = function(req, res, next) {
   try {
     const token = req.headers['x-api-key'];
     if (!token) {
@@ -13,7 +13,7 @@ exports.authentication = function (req, res, next) {
         .send({ status: false, message: 'Token must be present' });
     }
 
-    jwt.verify(token, 'functionup-radon', function (error, decodedToken) {
+    jwt.verify(token, 'functionup-radon', function(error, decodedToken) {
       if (error) {
         return res
           .status(401)
@@ -27,28 +27,7 @@ exports.authentication = function (req, res, next) {
   }
 };
 
-exports.auth2 = function(req, res, next) {
-  let token = req.headers['X-Api-key'];
-  if (!token) token = req.headers['x-api-key'];
-  //If no token is present in the request header return error
-  if (!token)
-    return res
-      .status(400)
-      .send({ status: false, msg: 'token must be present' });
-  const decodedtoken = jwt.verify(token, 'functionup-radon');
-  const id = req.body.userId;
-  if (decodedtoken.userId == id) {
-    next();
-  } else {
-    return res.status(403).send({
-      status: false,
-      msg:
-        'The Login User Are not authorize to do this Or Given Token in header Is Invalid'
-    });
-  }
-};
-
-exports.authForDelAndUp = async function (req, res, next) {
+exports.authForDelAndUp = async function(req, res, next) {
   let token = req.headers['X-Api-key'];
   if (!token) token = req.headers['x-api-key'];
   //If no token is present in the request header return error

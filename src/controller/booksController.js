@@ -5,26 +5,29 @@
 /* eslint-disable node/no-unsupported-features/es-syntax */
 const moment = require('moment');
 const mongoose = require('mongoose');
+const dotenv = require('dotenv');
 const aws = require('aws-sdk');
+const jwt = require('jsonwebtoken');
 const booksModel = require('../model/booksModel');
 const userModel = require('../model/userModel');
 const reviewModel = require('../model/reviewModel');
 
+dotenv.config();
 aws.config.update({
-  accessKeyId: 'AKIAY3L35MCRVFM24Q7U',
-  secretAccessKey: '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',
+  accessKeyId: process.env.accessKeyId,
+  secretAccessKey: process.env.secretAccessKey,
   region: 'ap-south-1'
 });
 
-const uploadFile = async function (file) {
+const uploadFile = async function(file) {
   return new Promise(function(resolve, reject) {
     // this function will upload file to aws and return the link
     const s3 = new aws.S3({ apiVersion: '2006-03-01' }); // we will be using the s3 service of aws
 
     const uploadParams = {
       ACL: 'public-read',
-      Bucket: 'classroom-training-bucket', //HERE
-      Key: `abc/${  file.originalname}`, //HERE
+      Bucket: 'my-product-management-project', //HERE
+      Key: `book-management/${file.originalname}`, //HERE
       Body: file.buffer
     };
 
@@ -34,10 +37,6 @@ const uploadFile = async function (file) {
       }
       return resolve(data.Location);
     });
-
-    // let data= await s3.upload( uploadParams)
-    // if( data) return data.Location
-    // else return "there is an error"
   });
 };
 const isValid = str => {
@@ -47,7 +46,7 @@ const isValid = str => {
 };
 const rexIsbn = /^[1-9][0-9]{9,14}$/;
 const nRegex = /^[a-zA-Z]+(([',. -][a-zA-Z ])?[a-zA-Z]*)*$/;
-const dateMatch = /^\d{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])$/;
+const dateMatch = /^(?:(?:31(\/|-|\.)(?:0?[13578]|1[02]))\1|(?:(?:29|30)(\/|-|\.)(?:0?[13-9]|1[0-2])\2))(?:(?:1[6-9]|[2-9]\d)?\d{2})$|^(?:29(\/|-|\.)0?2\3(?:(?:(?:1[6-9]|[2-9]\d)?(?:0[48]|[2468][048]|[13579][26])|(?:(?:16|[2468][048]|[3579][26])00))))$|^(?:0?[1-9]|1\d|2[0-8])(\/|-|\.)(?:(?:0?[1-9])|(?:1[0-2]))\4(?:(?:1[6-9]|[2-9]\d)?\d{2})$/;
 exports.createBook = async function(req, res) {
   try {
     let {
@@ -59,16 +58,22 @@ exports.createBook = async function(req, res) {
       subcategory,
       releasedAt
     } = req.body;
-    let {files} = req;
-
-    if (files && files.length < 0) {
+    let token = req.headers['X-Api-key'];
+    if (!token) token = req.headers['x-api-key'];
+    if (!token)
       return res
         .status(400)
-        .send({ status: false, msg: 'file is missing' });
+        .send({ status: false, msg: 'token must be present' });
+    if (!Object.keys(req.body).length)
+      return res
+        .status(400)
+        .send({ status: false, msg: 'body cannot be empty' });
+
+    let { files } = req;
+    if (!files.length) {
+      return res.status(400).send({ status: false, msg: 'file is missing' });
     }
-      //upload to s3 and get the uploaded link
-      // res.send the link back to frontend/postman
-      const uploadedFileURL = await uploadFile(files[0]);
+    const uploadedFileURL = await uploadFile(files[0]);
     if (!isValid(title)) {
       return res
         .status(400)
@@ -90,6 +95,13 @@ exports.createBook = async function(req, res) {
         .status(400)
         .send({ status: false, msg: 'userId cannot be empty' });
     }
+    const decodedtoken = jwt.verify(token, 'functionup-radon');
+    if (decodedtoken.userId !== userId)
+      return res.status(403).send({
+        status: false,
+        msg:
+          'The Login User Are not authorize to do this Or Given Token in header Is Invalid'
+      });
     if (!mongoose.isValidObjectId(userId)) {
       return res.status(400).send({ status: false, msg: 'Invalid userId' });
     }
@@ -136,9 +148,6 @@ exports.createBook = async function(req, res) {
         .status(400)
         .send({ status: false, msg: 'subcatgory contains invalid character' });
     }
-    // subcategory = subcategory.map(element => {
-    //   return element.toLowerCase();
-    // });
 
     if (!isValid(releasedAt)) {
       return res
@@ -150,6 +159,8 @@ exports.createBook = async function(req, res) {
         .status(400)
         .send({ status: false, msg: 'releasedAt is in invalid format' });
     }
+    const dateParts = releasedAt.split('/');
+    const dateObject = new Date(+dateParts[2], dateParts[1] - 1, +dateParts[0]);
     let bookCreated = await booksModel.create({
       title,
       excerpt,
@@ -157,13 +168,10 @@ exports.createBook = async function(req, res) {
       ISBN,
       category,
       subcategory,
-      releasedAt,
-      cover:uploadedFileURL
+      releasedAt: dateObject,
+      cover: uploadedFileURL
     });
 
-    const noDate = moment().format(releasedAt, 'YYYYMMDD');
-    bookCreated = bookCreated.toObject();
-    bookCreated.releasedAt = noDate;
     res
       .status(201)
       .send({ status: true, message: 'Success', data: bookCreated });
@@ -283,35 +291,23 @@ const updateBook = async function(req, res) {
   try {
     const { bookId } = req.params;
     const data = req.body;
+    if (!Object.keys(data).length) {
+      return res
+        .status(400)
+        .send({ status: false, msg: 'Body cannot be empty' });
+    }
     const { title, excerpt, releasedAt, ISBN } = data;
     if (bookId) {
       if (!mongoose.isValidObjectId(bookId))
         return res
           .status(400)
           .send({ status: false, msg: 'The Format of bookId is invalid' });
-      const d = await booksModel.findById(bookId);
-      if (!d)
+      const book = await booksModel.findById(bookId);
+      if (!book)
         return res
           .status(404)
           .send({ status: false, msg: 'The bookId is not found' });
     }
-    const del = await booksModel.findById(bookId);
-    if (del.isDeleted === true) {
-      return res.status(400).send({
-        status: false,
-        msg: 'The BookId you are updating is Already deleted'
-      });
-    }
-
-    if (!data)
-      return res
-        .status(400)
-        .send({ status: false, msg: 'The bookId is invalid' });
-
-    if (moment(releasedAt) > moment())
-      return res
-        .status(400)
-        .send({ status: false, msg: 'releasedAt cannot be in future' });
 
     if (title) {
       const checKTitle = await booksModel.findOne({
@@ -369,9 +365,10 @@ const deleteBook = async function(req, res) {
         msg: 'The Id You Have Entered Is doesnot exists'
       });
     if (find.isDeleted === true)
-      return res
-        .status(400)
-        .send({ status: false, msg: 'The Book is already deleted' });
+      return res.status(404).send({
+        status: false,
+        msg: 'The Id You Have Entered Is doesnot exists'
+      });
     const date = new Date().toISOString();
     await booksModel.findOneAndUpdate(
       { _id: bookId },

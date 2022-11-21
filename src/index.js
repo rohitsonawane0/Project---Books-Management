@@ -1,25 +1,23 @@
 /* eslint-disable prettier/prettier */
 const express = require('express');
-const { default: mongoose } = require('mongoose');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
+const multer = require('multer');
 const route = require('./routes/route');
-const multer=require('multer')
-
-
 
 const app = express();
-app.use(multer().any())
+dotenv.config();
+app.use(multer().any());
 
 app.use(express.json());
 
 mongoose
-    .connect(
-        'mongodb+srv://wishall:vishal@atlascluster.p9u9uvd.mongodb.net/group59Database?retryWrites=true&w=majority'
-    )
-    .then(() => console.log('MongoDb is connected'))
-    .catch(err => console.log(err));
+  .connect(process.env.MONGO_STRING)
+  .then(() => console.log('MongoDb is connected'))
+  .catch(err => console.log(err));
 
 app.use('/', route);
 
-app.listen(process.env.PORT || 3000, function () {
-    console.log(`Express app running on port ${process.env.PORT || 3000}`);
+app.listen(process.env.PORT || 3000, () => {
+  console.log(`Express app running on port ${process.env.PORT || 3000}`);
 });

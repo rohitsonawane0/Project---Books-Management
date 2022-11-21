@@ -3,57 +3,49 @@
 const express = require('express');
 
 const router = express.Router();
-const userController = require('../controller/userController');
-const booksController = require('../controller/booksController');
-const reviewController = require('../controller/reviewController');
-const middleware = require('../middleware/auth');
+const { createUser, userLogin } = require('../controller/userController');
+const {
+  createBook,
+  getBooks,
+  getBooksById,
+  updateBook,
+  deleteBook
+} = require('../controller/booksController');
+const {
+  createReview,
+  validationsReviewEdirAndDelete,
+  editReview,
+  deleteReview
+} = require('../controller/reviewController');
+const { authentication, authForDelAndUp } = require('../middleware/auth');
 
-router.post('/register', userController.createUser);
+router.post('/register', createUser);
 
-router.post('/login', userController.userLogin);
+router.post('/login', userLogin);
 
-router.post(
-  '/books',
-  middleware.authentication,
-  middleware.auth2,
-  booksController.createBook
-);
+router.post('/books', authentication, createBook);
 
-  router.get('/books', middleware.authentication, booksController.getBooks);
+router.get('/books', authentication, getBooks);
 //not in alphabetical order
 
-router.get(
-  '/books/:bookId',
-  middleware.authentication,
-  booksController.getBooksById
-);
+router.get('/books/:bookId', authentication, getBooksById);
 
-router.put(
-  '/books/:bookId',
-  middleware.authentication,
-  middleware.authForDelAndUp,
-  booksController.updateBook
-);
+router.put('/books/:bookId', authentication, authForDelAndUp, updateBook);
 
-router.delete(
-  '/books/:bookId',
-  middleware.authentication,
-  middleware.authForDelAndUp,
-  booksController.deleteBook
-);
+router.delete('/books/:bookId', authentication, authForDelAndUp, deleteBook);
 
-router.post('/books/:bookId/review', reviewController.createReview);
+router.post('/books/:bookId/review', createReview);
 
 router.put(
   '/books/:bookId/review/:reviewId',
-  reviewController.validationsReviewEdirAndDelete,
-  reviewController.editReview
+  validationsReviewEdirAndDelete,
+  editReview
 );
 
 router.delete(
   '/books/:bookId/review/:reviewId',
-  reviewController.validationsReviewEdirAndDelete,
-  reviewController.deleteReview
+  validationsReviewEdirAndDelete,
+  deleteReview
 );
 
 module.exports = router;
